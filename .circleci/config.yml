@@ -1,0 +1,57 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:8.12
+    steps:
+      - checkout
+      - run:
+          name: Install Packages
+          command: yarn install
+      # - run:
+      #     name: Run Tests
+      #     command: |
+      #       . venv/bin/activate
+      #       python manage.py test
+      # - store_test_results:
+      #     path: test-results
+      # - store_artifacts:
+      #     path: test-results
+      #     destination: tr1
+
+  deploy:
+    docker:
+      - image: circleci/node:8.12
+    steps:
+      - checkout
+      - run: 
+          name: Install Serverless
+          command: |
+            sudo npm i -g serverless
+            npm install
+      - run:
+          name: Install Packages
+          command: yarn install
+      - run:
+          name: Setup AWS Profile Permissions
+          command: sls config credentials --provider aws --key $SERVERLESS_KEY_ID --secret $SERVERLESS_KEY_SECRET
+      - run:
+          name: Deploy
+          command: sls deploy
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build
+      - hold:
+          type: approval
+          requires:
+           - build
+      - deploy:
+          context: AWS
+          requires:
+            - hold
+          filters:
+            branches:
+              only:
+                - /master/
